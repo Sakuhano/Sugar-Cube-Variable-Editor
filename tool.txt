@@ -1,0 +1,340 @@
+(() => {
+    const State = window.SugarCube?.State;
+
+    if (!State || !State.variables) {
+        alert("SugarCube.State.variables not found.");
+        console.log("SugarCube:", window.SugarCube);
+        return;
+    }
+
+    if (document.getElementById("scVarEditor")) {
+        document.getElementById("scVarEditor").remove();
+    }
+
+    const panel = document.createElement("div");
+    panel.id = "scVarEditor";
+
+    panel.innerHTML = `
+        <div class="top">
+            <b>SugarCube Variables</b>
+            <div>
+                <button id="scRefresh">↻</button>
+                <button id="scMin">−</button>
+                <button id="scClose">×</button>
+            </div>
+        </div>
+
+        <div class="content">
+            <input id="scSearch" placeholder="Search variables...">
+            <div id="scList"></div>
+        </div>
+    `;
+
+    document.body.appendChild(panel);
+
+    const css = document.createElement("style");
+    css.textContent = `
+    #scVarEditor {
+        position: fixed;
+        top: 30px;
+        right: 30px;
+        width: 380px;
+        max-height: 650px;
+        background:#111;
+        color:#eee;
+        border:1px solid #555;
+        border-radius:10px;
+        z-index:999999;
+        font-family:Arial;
+        box-shadow:0 10px 30px #000;
+        overflow:hidden;
+    }
+
+    #scVarEditor .top {
+        background:#222;
+        padding:10px;
+        display:flex;
+        justify-content:space-between;
+        cursor:move;
+    }
+
+    #scVarEditor button {
+        background:#333;
+        color:white;
+        border:0;
+        padding:4px 8px;
+        cursor:pointer;
+    }
+
+    #scVarEditor .content {
+        padding:10px;
+        max-height:600px;
+        overflow:auto;
+    }
+
+    #scSearch {
+        width:100%;
+        box-sizing:border-box;
+        padding:8px;
+        background:#000;
+        color:white;
+        border:1px solid #555;
+        margin-bottom:10px;
+    }
+
+    .scRow {
+        display:flex;
+        justify-content:space-between;
+        gap:10px;
+        margin-bottom:6px;
+        align-items:center;
+    }
+
+    .scRow span {
+        overflow:hidden;
+        text-overflow:ellipsis;
+        white-space:nowrap;
+    }
+
+    .scRow input {
+        width:140px;
+        background:#000;
+        color:white;
+        border:1px solid #555;
+        padding:4px;
+    }
+
+    .scGroup {
+        border:1px solid #333;
+        margin-bottom:8px;
+        border-radius:5px;
+    }
+
+    .scGroupTitle {
+        background:#222;
+        padding:6px;
+        cursor:pointer;
+    }
+
+    .scVars {
+        padding:8px;
+        display:none;
+    }
+    `;
+
+    document.head.appendChild(css);
+
+    const list = panel.querySelector("#scList");
+    const search = panel.querySelector("#scSearch");
+
+
+    function getVars() {
+        return SugarCube.State.variables;
+    }
+
+
+    function getType(value) {
+        if (typeof value === "boolean") return "boolean";
+        if (typeof value === "number") return "number";
+        return "string";
+    }
+
+
+    function createInput(name) {
+
+        const vars = getVars();
+        const value = vars[name];
+
+        let input;
+
+        if (typeof value === "boolean") {
+
+            input = document.createElement("input");
+            input.type = "checkbox";
+            input.checked = value;
+
+            input.onchange = () => {
+                vars[name] = input.checked;
+            };
+
+        } else {
+
+            input = document.createElement("input");
+
+            input.type =
+                typeof value === "number"
+                ? "number"
+                : "text";
+
+            input.value = value ?? "";
+
+            input.onchange = () => {
+
+                if (typeof value === "number") {
+                    vars[name] = Number(input.value);
+                } else {
+                    vars[name] = input.value;
+                }
+
+            };
+        }
+
+        return input;
+    }
+
+
+    function build() {
+
+        list.innerHTML = "";
+
+        const vars = getVars();
+
+        const groups = {};
+
+        Object.keys(vars).forEach(name => {
+
+            let group = "Other";
+
+            if (name.includes("_")) {
+                group = name.split("_")[0];
+            }
+
+            if (!groups[group]) {
+                groups[group] = [];
+            }
+
+            groups[group].push(name);
+
+        });
+
+
+        Object.keys(groups)
+        .sort()
+        .forEach(groupName => {
+
+            const box = document.createElement("div");
+            box.className = "scGroup";
+
+            const title = document.createElement("div");
+            title.className = "scGroupTitle";
+
+            title.textContent =
+                `${groupName} (${groups[groupName].length})`;
+
+
+            const varsBox = document.createElement("div");
+            varsBox.className = "scVars";
+
+
+            title.onclick = () => {
+
+                varsBox.style.display =
+                    varsBox.style.display === "block"
+                    ? "none"
+                    : "block";
+
+            };
+
+
+            groups[groupName]
+            .sort()
+            .forEach(name => {
+
+                const row = document.createElement("div");
+                row.className = "scRow";
+
+                const label = document.createElement("span");
+                label.textContent = name;
+
+                row.appendChild(label);
+                row.appendChild(createInput(name));
+
+                varsBox.appendChild(row);
+
+            });
+
+
+            box.appendChild(title);
+            box.appendChild(varsBox);
+            list.appendChild(box);
+
+        });
+    }
+
+
+    search.oninput = () => {
+
+        const term = search.value.toLowerCase();
+
+        document.querySelectorAll(".scRow")
+        .forEach(row => {
+
+            row.style.display =
+                row.innerText
+                .toLowerCase()
+                .includes(term)
+                ? "flex"
+                : "none";
+
+        });
+    };
+
+
+    panel.querySelector("#scRefresh").onclick = build;
+
+
+    panel.querySelector("#scClose").onclick = () => {
+        panel.remove();
+        css.remove();
+    };
+
+
+    panel.querySelector("#scMin").onclick = () => {
+
+        const c = panel.querySelector(".content");
+
+        c.style.display =
+            c.style.display === "none"
+            ? "block"
+            : "none";
+    };
+
+
+    // Dragging
+    let dragging = false;
+    let x = 0;
+    let y = 0;
+
+    panel.querySelector(".top").onmousedown = e => {
+
+        dragging = true;
+
+        x = e.clientX - panel.offsetLeft;
+        y = e.clientY - panel.offsetTop;
+
+    };
+
+
+    document.onmousemove = e => {
+
+        if (!dragging) return;
+
+        panel.style.left =
+            (e.clientX - x) + "px";
+
+        panel.style.top =
+            (e.clientY - y) + "px";
+
+        panel.style.right = "auto";
+
+    };
+
+
+    document.onmouseup = () => {
+        dragging = false;
+    };
+
+
+    build();
+
+})();
